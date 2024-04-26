@@ -8,8 +8,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b66d6bdd-e2c0-4182-aa1a-d666e4f77b19" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -111,7 +111,9 @@
       <workItem from="1714020506455" duration="5093000" />
       <workItem from="1714026917695" duration="6284000" />
       <workItem from="1714034984169" duration="4142000" />
-      <workItem from="1714046908502" duration="3700000" />
+      <workItem from="1714046908502" duration="5066000" />
+      <workItem from="1714094798773" duration="1195000" />
+      <workItem from="1714108107034" duration="11602000" />
     </task>
     <servers />
   </component>
