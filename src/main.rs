@@ -1,8 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use thousands::Separable;
 use coingecko_cli::calculate_fees;
 use std::fmt;
-use std::fmt::{Debug};
 use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser};
@@ -19,7 +18,7 @@ pub struct Cli {
     #[arg(short, long, default_value = "2")]
     precision: String,
     #[arg(short, long, default_value = "0.0006")]
-    fees: Option<f32>
+    fees: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -41,24 +40,22 @@ impl Default for MyConfig {
 
 #[derive(Deserialize, Debug)]
 pub struct Resp {
-    n_currencies: Option<usize>,
     #[serde(flatten)]
-    prices: HashMap<String, HashMap<String, f64>>,
-    fees: Option<f32>
+    prices: HashMap<String, HashMap<String, f32>>,
+    fees: Option<f32>,
+    current_amount: Option<f32>
 }
 
 impl fmt::Display for Resp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let n = &self.n_currencies.unwrap();
-        let fees = &self.fees.unwrap();
+        let fees = self.fees.context("Unable to obtain the fees").unwrap_or(0.0);
         for (coin, prices) in &self.prices {
             write!(f, "The current price of {}", coin)?;
-            for (i, (currency, price)) in prices.iter().enumerate() {
-                if i == *n {
-                    writeln!(f, " in {} is ${} and the fees are ${:.2}.", currency, price.separate_with_commas(), fees)?
-                } else {
-                    write!(f, " in {} is ${} and the fees are ${:.2}", currency, price.separate_with_commas(), fees)?
-                }
+            for (currency, price) in prices.iter() {
+                let current_amount_in_fiat = self.current_amount.unwrap() * price;
+                let fees_pct_over_withdraw_amount = (fees / current_amount_in_fiat) * 100_f32;
+                writeln!(f, " in {} is ${} and the fees of ${:.2} makes up {:.2}% of the current amount of ${:.2}",
+                         currency, price.separate_with_commas(), fees, fees_pct_over_withdraw_amount, current_amount_in_fiat)?
             }
         }
         Ok(())
@@ -75,40 +72,33 @@ async fn get_all_currencies(cfg: &MyConfig) -> Result<Vec<String>> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // The config file can be found in C:\Users\Kumeresh\AppData\Roaming\coingecko-config
+    // The config file can be found in C:\Users\your_user_name\AppData\Roaming\coingecko-config
     let cfg: MyConfig = confy::load("coingecko-config", "test1")?;
     let cli = Cli::parse();
 
 
-    if cli.name.contains(','){
-        return Err(anyhow!("Invalid character found: ,"))
+    if cli.name.contains(',') || cli.currency.contains(','){
+        return Err(anyhow!("Invalid character: ',' found in either coin name or coin currency argument"))
     }
 
     let vec_currencies = get_all_currencies(&cfg).await.context("Unable to get currencies")?;
-    let cli_currency = cli.currency
-        .split(',')
-        .collect::<HashSet<&str>>()
-        .iter()
-        .filter_map(|&c| {
-            match vec_currencies.contains(&c.to_string()) {
-                true => Some(c),
-                false => None
-            }
-        })
-        .collect::<Vec<&str>>()
-        .join(",");
+    if !vec_currencies.contains(&cli.currency) {
+        return Err(anyhow!("{} is an invalid currency", cli.currency))
+    }
+    
     let coin_args = format!("{}/simple/price?x_cg_demo_api_key={}&ids={}&vs_currencies={}&precision={}",
-                            &cfg.coingecko_api_url, &cfg.api_key, &cli.name, &cli_currency, &cli.precision);
+                            &cfg.coingecko_api_url, &cfg.api_key, &cli.name, &cli.currency, &cli.precision);
     let response = reqwest::get(coin_args).await.context("Unable to obtain a response")?;
     let mut obj: Resp = response.json().await.context("Unable to parse response object to json")?;
     let price_of_coin = *obj.prices
         .get(&cli.name)
-        .with_context(|| format!("Name of the coin: {} is incorrect", &cli.name))?
-        .get(&cli_currency)
+        .with_context(|| format!("Name of the coin/token: {} is incorrect or unsupported", &cli.name))?
+        .get(&cli.currency)
         .context("Unable to obtain the currency of the coin")? as f32;
     let fees = calculate_fees(cli.fees.unwrap(), price_of_coin);
-    obj.n_currencies = Some(cli_currency.chars().filter(|&c| c == ',').count());
+
     obj.fees = Some(fees);
+    obj.current_amount = Some(cli.current_amount);
 
     println!("{}", obj);
     Ok(())
