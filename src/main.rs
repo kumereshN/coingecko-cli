@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 use thousands::Separable;
-use coingecko_cli::calculate_fees;
+use coingecko_fees_calculator::calculate_fees;
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser};
 
 #[derive(Parser)]
-#[command(name = "coingecko-cli",version = "1.0", about = "CoinGecko API CLI tool", long_about = None)]
+#[command(name = "coingecko-fees-calculator",version = "1.0", about = "CoinGecko API CLI tool for calculating fees", long_about = None)]
 pub struct Cli {
-    #[arg(short, long = "coin–name")]
+    #[arg(short, long = "coin–name", help = "Name of the cryptocurrency", long_help = "Provide the api id of the cryptocurrency from coin gecko")]
     name: String,
-    #[arg(short, long = "currency", default_value = "sgd")]
+    #[arg(short, long = "currency", help = "Target fiat currency", long_help = "Converts the cryptocurrency into the supported target fiat currencies", default_value = "sgd")]
     currency: String,
-    #[arg(short = 'a', long = "current-amount")]
-    current_amount: f32,
-    #[arg(short, long, default_value = "2")]
-    precision: String,
-    #[arg(short, long, default_value = "0.0006")]
+    #[arg(short = 'w', long = "withdraw-amount", long_help = "Cryptocurrency amount that is being withdrawn")]
+    withdraw_amount: f32,
+    #[arg(short, long, default_value = "2", long_help = "Decimal precision of the target cryptocurrency to fiat")]
+    precision: u8,
+    #[arg(short, long, default_value = "0.0006", long_help = "Cryptocurrency fees that needs to be paid for withdrawing")]
     fees: Option<f32>,
 }
 
@@ -54,15 +54,20 @@ impl fmt::Display for Resp {
             for (currency, price) in prices.iter() {
                 let current_amount_in_fiat = self.current_amount.unwrap() * price;
                 let fees_pct_over_withdraw_amount = (fees / current_amount_in_fiat) * 100_f32;
-                writeln!(f, " in {} is ${} and the fees of ${:.2} makes up {:.2}% of the current amount of ${:.2}",
-                         currency, price.separate_with_commas(), fees, fees_pct_over_withdraw_amount, current_amount_in_fiat)?
+                let rounded_2_places_current_amount_in_fiat = format!("{:.2}",current_amount_in_fiat)
+                    .parse::<f32>()
+                    .context("Unable to convert current amount in fiat to 2 decimal places")
+                    .unwrap()
+                    .separate_with_commas();
+                writeln!(f, " in {} is ${} and the fees of ${:.2} makes up {:.2}% of the withdrawal amount of ${}",
+                         currency, price.separate_with_commas(), fees, fees_pct_over_withdraw_amount, rounded_2_places_current_amount_in_fiat)?
             }
         }
         Ok(())
     }
 }
 
-async fn get_all_currencies(cfg: &MyConfig) -> Result<Vec<String>> {
+async fn get_currencies(cfg: &MyConfig) -> Result<Vec<String>> {
     let coin_args = format!("{}/simple/supported_vs_currencies?x_cg_demo_api_key={}",
                             &cfg.coingecko_api_url, &cfg.api_key);
     let response = reqwest::get(coin_args).await?;
@@ -81,7 +86,7 @@ async fn main() -> Result<()> {
         return Err(anyhow!("Invalid character: ',' found in either coin name or coin currency argument"))
     }
 
-    let vec_currencies = get_all_currencies(&cfg).await.context("Unable to get currencies")?;
+    let vec_currencies = get_currencies(&cfg).await.context("Unable to get currencies")?;
     if !vec_currencies.contains(&cli.currency) {
         return Err(anyhow!("{} is an invalid currency", cli.currency))
     }
@@ -94,11 +99,11 @@ async fn main() -> Result<()> {
         .get(&cli.name)
         .with_context(|| format!("Name of the coin/token: {} is incorrect or unsupported", &cli.name))?
         .get(&cli.currency)
-        .context("Unable to obtain the currency of the coin")? as f32;
+        .context("Unable to obtain the currency of the coin")?;
     let fees = calculate_fees(cli.fees.unwrap(), price_of_coin);
 
     obj.fees = Some(fees);
-    obj.current_amount = Some(cli.current_amount);
+    obj.current_amount = Some(cli.withdraw_amount);
 
     println!("{}", obj);
     Ok(())
