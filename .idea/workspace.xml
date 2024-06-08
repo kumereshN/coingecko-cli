@@ -9,7 +9,6 @@
   <component name="ChangeListManager">
     <list default="true" id="b66d6bdd-e2c0-4182-aa1a-d666e4f77b19" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -38,7 +37,7 @@
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Kumeresh/Documents/rust_projects/cli-projects/coingecko-cli&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Kumeresh/Documents/rust-projects/async-projects/async-in-depth&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -118,6 +117,13 @@
       <workItem from="1714191394535" duration="6012000" />
       <workItem from="1714529302110" duration="199000" />
       <workItem from="1714529514638" duration="3918000" />
+      <workItem from="1715406544304" duration="1199000" />
+      <workItem from="1716563569631" duration="1187000" />
+      <workItem from="1716636171744" duration="3152000" />
+      <workItem from="1716697877117" duration="613000" />
+      <workItem from="1717215958646" duration="725000" />
+      <workItem from="1717236150136" duration="709000" />
+      <workItem from="1717822408489" duration="1116000" />
     </task>
     <servers />
   </component>

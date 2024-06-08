@@ -59,8 +59,8 @@ impl fmt::Display for Resp {
                     .context("Unable to convert current amount in fiat to 2 decimal places")
                     .unwrap()
                     .separate_with_commas();
-                writeln!(f, " in {} is ${} and the fees of ${:.2} makes up {:.2}% of the withdrawal amount of ${}",
-                         currency, price.separate_with_commas(), fees, fees_pct_over_withdraw_amount, rounded_2_places_current_amount_in_fiat)?
+                writeln!(f, " in {}: ${}\nWithdrawal amount: ${}\nWithdrawal fees: ${:.2}\nPercent of withdrawal fees over withdrawal amount: {:.2}%",
+                         currency, price.separate_with_commas(), rounded_2_places_current_amount_in_fiat, fees, fees_pct_over_withdraw_amount)?
             }
         }
         Ok(())
