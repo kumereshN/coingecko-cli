@@ -78,7 +78,7 @@ async fn get_currencies(cfg: &MyConfig) -> Result<Vec<String>> {
 #[tokio::main]
 async fn main() -> Result<()> {
     // The config file can be found in C:\Users\your_user_name\AppData\Roaming\coingecko-config
-    let cfg: MyConfig = confy::load("coingecko-config", "test1")?;
+    let cfg: MyConfig = confy::load("coingecko-config", "config")?;
     let cli = Cli::parse();
 
 
