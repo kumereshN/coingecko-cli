@@ -67,10 +67,22 @@ impl fmt::Display for Resp {
     }
 }
 
-async fn get_currencies(cfg: &MyConfig) -> Result<Vec<String>> {
+fn build_client() -> Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .user_agent("coingecko-fees-calculator/1.0")
+        .build()
+        .context("Failed to build HTTP client")
+}
+
+async fn get_currencies(client: &reqwest::Client, cfg: &MyConfig) -> Result<Vec<String>> {
     let coin_args = format!("{}/simple/supported_vs_currencies?x_cg_demo_api_key={}",
                             &cfg.coingecko_api_url, &cfg.api_key);
-    let response = reqwest::get(coin_args).await?;
+    let response = client.get(&coin_args).send().await?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(anyhow!("API request failed with status {}: {}", status, body));
+    }
     let obj = response.json::<Vec<String>>().await?;
     Ok(obj)
 }
@@ -80,20 +92,25 @@ async fn main() -> Result<()> {
     // The config file can be found in C:\Users\your_user_name\AppData\Roaming\coingecko-config
     let cfg: MyConfig = confy::load("coingecko-config", "config")?;
     let cli = Cli::parse();
-
+    let client = build_client()?;
 
     if cli.name.contains(',') || cli.currency.contains(','){
         return Err(anyhow!("Invalid character: ',' found in either coin name or coin currency argument"))
     }
 
-    let vec_currencies = get_currencies(&cfg).await.context("Unable to get currencies")?;
+    let vec_currencies = get_currencies(&client, &cfg).await.context("Unable to get currencies")?;
     if !vec_currencies.contains(&cli.currency) {
         return Err(anyhow!("{} is an invalid currency", cli.currency))
     }
-    
+
     let coin_args = format!("{}/simple/price?x_cg_demo_api_key={}&ids={}&vs_currencies={}&precision={}",
                             &cfg.coingecko_api_url, &cfg.api_key, &cli.name, &cli.currency, &cli.precision);
-    let response = reqwest::get(coin_args).await.context("Unable to obtain a response")?;
+    let response = client.get(&coin_args).send().await.context("Unable to obtain a response")?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(anyhow!("API request failed with status {}: {}", status, body));
+    }
     let mut obj: Resp = response.json().await.context("Unable to parse response object to json")?;
     let price_of_coin = *obj.prices
         .get(&cli.name)
