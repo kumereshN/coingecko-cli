@@ -1,4 +1,4 @@
 
-pub fn calculate_fees(fees: f32, current_holdings: f32) -> f32 {
+pub fn calculate_fees(fees: f64, current_holdings: f64) -> f64 {
     current_holdings * fees
 }

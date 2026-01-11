@@ -14,11 +14,11 @@ pub struct Cli {
     #[arg(short, long = "currency", help = "Target fiat currency", long_help = "Converts the cryptocurrency into the supported target fiat currencies", default_value = "sgd")]
     currency: String,
     #[arg(short = 'w', long = "withdraw-amount", long_help = "Cryptocurrency amount that is being withdrawn")]
-    withdraw_amount: f32,
-    #[arg(short, long, default_value = "2", long_help = "Decimal precision of the target cryptocurrency to fiat")]
-    precision: u8,
+    withdraw_amount: f64,
+    #[arg(short, long, long_help = "Decimal precision (defaults to 2 for fiat, 8 for crypto currencies)")]
+    precision: Option<u8>,
     #[arg(short, long, default_value = "0.0006", long_help = "Cryptocurrency fees that needs to be paid for withdrawing")]
-    fees: Option<f32>,
+    fees: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -41,26 +41,44 @@ impl Default for MyConfig {
 #[derive(Deserialize, Debug)]
 pub struct Resp {
     #[serde(flatten)]
-    prices: HashMap<String, HashMap<String, f32>>,
-    fees: Option<f32>,
-    current_amount: Option<f32>
+    prices: HashMap<String, HashMap<String, f64>>,
+    fees: Option<f64>,
+    current_amount: Option<f64>,
+    #[serde(skip)]
+    precision: usize,
+    #[serde(skip)]
+    currency: String,
+}
+
+const FIAT_CURRENCIES: &[&str] = &[
+    "usd", "eur", "gbp", "jpy", "aud", "cad", "chf", "cny", "hkd", "nzd", "sgd",
+    "krw", "inr", "rub", "brl", "zar", "mxn", "idr", "try", "sar", "aed", "pln",
+    "thb", "twd", "myr", "php", "vnd", "pkr", "bdt", "ngn", "uah", "ars", "clp",
+    "cop", "pen", "czk", "dkk", "huf", "ils", "nok", "sek"
+];
+
+fn is_fiat_currency(currency: &str) -> bool {
+    FIAT_CURRENCIES.contains(&currency.to_lowercase().as_str())
 }
 
 impl fmt::Display for Resp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let fees = self.fees.context("Unable to obtain the fees").unwrap_or(0.0);
+        let prec = self.precision;
+        let currency_prefix = if is_fiat_currency(&self.currency) { "$" } else { "" };
+
         for (coin, prices) in &self.prices {
             write!(f, "The current price of {}", coin)?;
             for (currency, price) in prices.iter() {
-                let current_amount_in_fiat = self.current_amount.unwrap() * price;
-                let fees_pct_over_withdraw_amount = (fees / current_amount_in_fiat) * 100_f32;
-                let rounded_2_places_current_amount_in_fiat = format!("{:.2}",current_amount_in_fiat)
-                    .parse::<f32>()
-                    .context("Unable to convert current amount in fiat to 2 decimal places")
+                let current_amount_in_currency = self.current_amount.unwrap() * price;
+                let fees_pct_over_withdraw_amount = (fees / current_amount_in_currency) * 100_f64;
+                let formatted_amount = format!("{:.prec$}", current_amount_in_currency, prec = prec)
+                    .parse::<f64>()
+                    .context("Unable to format current amount")
                     .unwrap()
                     .separate_with_commas();
-                writeln!(f, " in {}: ${}\nWithdrawal amount: ${}\nWithdrawal fees: ${:.2}\nPercent of withdrawal fees over withdrawal amount: {:.2}%",
-                         currency, price.separate_with_commas(), rounded_2_places_current_amount_in_fiat, fees, fees_pct_over_withdraw_amount)?
+                writeln!(f, " in {}: {}{:.prec$}\nWithdrawal amount: {}{}\nWithdrawal fees: {}{:.prec$}\nPercent of withdrawal fees over withdrawal amount: {:.2}%",
+                         currency, currency_prefix, price, currency_prefix, formatted_amount, currency_prefix, fees, fees_pct_over_withdraw_amount, prec = prec)?
             }
         }
         Ok(())
@@ -103,8 +121,13 @@ async fn main() -> Result<()> {
         return Err(anyhow!("{} is an invalid currency", cli.currency))
     }
 
+    // Auto-select precision: 2 for fiat currencies, 8 for crypto
+    let precision = cli.precision.unwrap_or_else(|| {
+        if is_fiat_currency(&cli.currency) { 2 } else { 8 }
+    });
+
     let coin_args = format!("{}/simple/price?x_cg_demo_api_key={}&ids={}&vs_currencies={}&precision={}",
-                            &cfg.coingecko_api_url, &cfg.api_key, &cli.name, &cli.currency, &cli.precision);
+                            &cfg.coingecko_api_url, &cfg.api_key, &cli.name, &cli.currency, precision);
     let response = client.get(&coin_args).send().await.context("Unable to obtain a response")?;
     if !response.status().is_success() {
         let status = response.status();
@@ -121,6 +144,8 @@ async fn main() -> Result<()> {
 
     obj.fees = Some(fees);
     obj.current_amount = Some(cli.withdraw_amount);
+    obj.precision = precision as usize;
+    obj.currency = cli.currency;
 
     println!("{}", obj);
     Ok(())
