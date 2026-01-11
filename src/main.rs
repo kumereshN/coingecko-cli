@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use thousands::Separable;
-use coingecko_fees_calculator::calculate_fees;
 use std::fmt;
+use thousands::Separable;
+use coingecko_fees_calculator::{calculate_fees, is_fiat_currency, get_default_precision};
 use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser};
@@ -48,17 +48,6 @@ pub struct Resp {
     precision: usize,
     #[serde(skip)]
     currency: String,
-}
-
-const FIAT_CURRENCIES: &[&str] = &[
-    "usd", "eur", "gbp", "jpy", "aud", "cad", "chf", "cny", "hkd", "nzd", "sgd",
-    "krw", "inr", "rub", "brl", "zar", "mxn", "idr", "try", "sar", "aed", "pln",
-    "thb", "twd", "myr", "php", "vnd", "pkr", "bdt", "ngn", "uah", "ars", "clp",
-    "cop", "pen", "czk", "dkk", "huf", "ils", "nok", "sek"
-];
-
-fn is_fiat_currency(currency: &str) -> bool {
-    FIAT_CURRENCIES.contains(&currency.to_lowercase().as_str())
 }
 
 impl fmt::Display for Resp {
@@ -121,10 +110,7 @@ async fn main() -> Result<()> {
         return Err(anyhow!("{} is an invalid currency", cli.currency))
     }
 
-    // Auto-select precision: 2 for fiat currencies, 8 for crypto
-    let precision = cli.precision.unwrap_or_else(|| {
-        if is_fiat_currency(&cli.currency) { 2 } else { 8 }
-    });
+    let precision = get_default_precision(&cli.currency, cli.precision);
 
     let coin_args = format!("{}/simple/price?x_cg_demo_api_key={}&ids={}&vs_currencies={}&precision={}",
                             &cfg.coingecko_api_url, &cfg.api_key, &cli.name, &cli.currency, precision);
